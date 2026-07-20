@@ -67,7 +67,7 @@ local Library do
     Library = {
         Theme =  { },
 
-        MenuKeybind = tostring(Enum.KeyCode.RightControl), 
+        MenuKeybind = tostring(Enum.KeyCode.RightShift),
         Flags = { },
 
         Tween = {
@@ -5410,20 +5410,21 @@ local Library do
             end
         end)
 
-        -- Mobile-only menu toggle (Touch devices without a keyboard â€” avoids PC touchscreens)
+        -- Mobile-only menu toggle (Touch devices without a keyboard — avoids PC touchscreens)
         local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
         if IsMobile then
             Items["MobileToggle"] = Instances:Create("ImageButton", {
                 Parent = Library.Holder.Instance,
                 Name = "EchoMobileToggle",
-                AnchorPoint = Vector2New(1, 0.5),
-                Position = UDim2New(1, -18, 0.5, 0),
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(1, -44, 0.5, 0),
                 Size = UDim2New(0, 52, 0, 52),
                 BackgroundColor3 = FromRGB(20, 24, 21),
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Image = "",
                 ZIndex = 10000,
+                Active = true,
             })
             Items["MobileToggle"]:AddToTheme({BackgroundColor3 = "Background"})
 
@@ -5454,9 +5455,64 @@ local Library do
                 ZIndex = 10001,
             })
 
-            Items["MobileToggle"]:Connect("Activated", function()
-                Window:SetOpen(not Window.IsOpen)
-            end)
+            -- Drag to reposition; tap (no drag) toggles the menu
+            do
+                local ToggleGui = Items["MobileToggle"].Instance
+                local Dragging = false
+                local Dragged = false
+                local DragStart
+                local StartPos
+                local DragThreshold = 8
+
+                local function ClampToScreen(X, Y)
+                    local Cam = Workspace.CurrentCamera
+                    local Size = Cam and Cam.ViewportSize or Vector2New(1920, 1080)
+                    local Half = 26
+                    return MathClamp(X, Half, Size.X - Half), MathClamp(Y, Half, Size.Y - Half)
+                end
+
+                Items["MobileToggle"]:Connect("InputBegan", function(Input)
+                    if Input.UserInputType ~= Enum.UserInputType.Touch and Input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                        return
+                    end
+                    Dragging = true
+                    Dragged = false
+                    DragStart = Input.Position
+                    StartPos = ToggleGui.AbsolutePosition + ToggleGui.AbsoluteSize * 0.5
+                end)
+
+                Library:Connect(UserInputService.InputChanged, function(Input)
+                    if not Dragging then
+                        return
+                    end
+                    if Input.UserInputType ~= Enum.UserInputType.Touch and Input.UserInputType ~= Enum.UserInputType.MouseMovement then
+                        return
+                    end
+                    local Delta = Input.Position - DragStart
+                    if Delta.Magnitude >= DragThreshold then
+                        Dragged = true
+                    end
+                    if Dragged and StartPos then
+                        local X, Y = ClampToScreen(StartPos.X + Delta.X, StartPos.Y + Delta.Y)
+                        ToggleGui.Position = UDim2New(0, X, 0, Y)
+                    end
+                end)
+
+                Library:Connect(UserInputService.InputEnded, function(Input)
+                    if not Dragging then
+                        return
+                    end
+                    if Input.UserInputType ~= Enum.UserInputType.Touch and Input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                        return
+                    end
+                    local WasDrag = Dragged
+                    Dragging = false
+                    Dragged = false
+                    if not WasDrag then
+                        Window:SetOpen(not Window.IsOpen)
+                    end
+                end)
+            end
         end
 
         local SearchStepped
@@ -6598,12 +6654,13 @@ local Library do
                     SettingsSection:Label("UI Keybind"):Keybind({
                         Name = "Menu keybind",
                         Flag = "UIKeybind",
-                        Default = Library.MenuKeybind,
+                        Default = Enum.KeyCode.RightShift,
                         Mode = "Toggle",
                         Callback = function()
                             Library.MenuKeybind = Library.Flags["UIKeybind"].Key
                         end
                     })
+                    Library.MenuKeybind = tostring(Enum.KeyCode.RightShift)
                 end
             end
         end
